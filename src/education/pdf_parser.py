@@ -5,15 +5,19 @@ import numpy as np
 class PDFParser:
     def __init__(self, use_ocr: bool = True):
         self.use_ocr = use_ocr
-        self.ocr_engine = None
-        if self.use_ocr:
+        self._ocr_engine = None
+
+    @property
+    def ocr_engine(self):
+        if self._ocr_engine is None and self.use_ocr:
             try:
                 from paddleocr import PaddleOCR
-                # use_angle_cls=True to handle rotated pages, lang='en'
-                self.ocr_engine = PaddleOCR(use_angle_cls=True, lang='en')
-            except ImportError:
-                print("[PDFParser] PaddleOCR not installed. Falling back to digital-only extraction.")
-                self.ocr_engine = None
+                self._ocr_engine = PaddleOCR(use_angle_cls=True, lang='en')
+            except Exception as e:
+                print(f"[PDFParser] PaddleOCR unavailable ({e}). Falling back to digital-only extraction.")
+                self.use_ocr = False
+                self._ocr_engine = None
+        return self._ocr_engine
 
     def extract_text(self, pdf_path: str) -> str:
         if not os.path.exists(pdf_path):

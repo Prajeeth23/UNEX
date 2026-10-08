@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.memory.database import MemoryDB, MemoryEmbeddingDB, MemoryAccessLogDB
 from src.memory.memory_models import MemoryRecord, MemoryType, ImportanceLevel
@@ -73,7 +73,7 @@ class MemoryStore:
             for mid in memory_ids:
                 mem = session.query(MemoryDB).filter(MemoryDB.id == mid).first()
                 if mem:
-                    mem.last_accessed = datetime.utcnow()
+                    mem.last_accessed = datetime.now(timezone.utc)
                 self._log_access(session, mid)
             session.commit()
 

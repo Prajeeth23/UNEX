@@ -15,26 +15,11 @@ class MockLLMProvider:
         return "mock"
 
 @pytest.fixture
-def memory_manager():
-    # Use in-memory SQLite for testing
-    import os
-    if os.path.exists("database/test_unex.db"):
-        os.remove("database/test_unex.db")
-    
-    # Initialize DB specifically for test
-    from src.memory.database import init_db
-    SessionLocal = init_db("database/test_unex.db")
-    
-    # Actually, MemoryManager calls init_db internally.
-    manager = MemoryManager(MockLLMProvider(), db_path="database/test_unex.db")
+def memory_manager(tmp_path):
+    db_path = str(tmp_path / "test_unex.db")
+    manager = MemoryManager(MockLLMProvider(), db_path=db_path)
     yield manager
-    
-    # Cleanup
-    try:
-        if os.path.exists("database/test_unex.db"):
-            os.remove("database/test_unex.db")
-    except Exception:
-        pass
+    manager.close()
 
 def test_preference_memory(memory_manager):
     # User: "I prefer answers in Tanglish."
@@ -93,14 +78,17 @@ def test_multi_day_persistence(memory_manager):
     # and retrieve it.
     mem = MemoryRecord(type=MemoryType.KNOWLEDGE, content="The sky is blue.", importance=ImportanceLevel.LOW)
     mem_id = memory_manager.store_memory(mem)
+    db_path = str(memory_manager.SessionLocal.kw['bind'].url.database)
     
     # Recreate manager simulating restart
-    new_manager = MemoryManager(MockLLMProvider(), db_path="database/test_unex.db")
-    
-    memories = new_manager.store.get_all_memories()
-    assert len(memories) > 0
-    
-    # Embeddings reload test
-    results = new_manager.search_memory("sky color")
-    assert len(results) > 0
-    assert "blue" in results[0][0].content
+    new_manager = MemoryManager(MockLLMProvider(), db_path=db_path)
+    try:
+        memories = new_manager.store.get_all_memories()
+        assert len(memories) > 0
+        
+        # Embeddings reload test
+        results = new_manager.search_memory("sky color")
+        assert len(results) > 0
+        assert "blue" in results[0][0].content
+    finally:
+        new_manager.close()

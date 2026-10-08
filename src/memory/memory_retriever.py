@@ -38,7 +38,7 @@ class MemoryRetriever:
         # Convert to numpy array and back to list for JSON serialization
         return self.model.encode(text).tolist()
 
-    def search(self, query: str, top_k: int = 5) -> List[Tuple[MemoryRecord, float]]:
+    def search(self, query: str, top_k: int = 5, min_score: float = 0.2) -> List[Tuple[MemoryRecord, float]]:
         self._refresh_cache()
         
         if len(self._cache_memory_ids) == 0:
@@ -58,7 +58,7 @@ class MemoryRetriever:
         results = []
         for idx in top_indices:
             score = float(similarities[idx])
-            if score > 0.3: # Minimum similarity threshold
+            if score >= min_score: # Configurable similarity threshold
                 mem_id = self._cache_memory_ids[idx]
                 mem_record = self.memory_store.get_memory(mem_id)
                 if mem_record:

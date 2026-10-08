@@ -44,7 +44,8 @@ class DocumentIndexer:
         try:
             async with aiohttp.ClientSession() as session:
                 payload = {"model": "nomic-embed-text", "prompt": text}
-                async with session.post(f"{self.provider.host}/api/embeddings", json=payload) as resp:
+                base_url = getattr(self.provider, "base_url", getattr(self.provider, "host", "http://localhost:11434"))
+                async with session.post(f"{base_url}/api/embeddings", json=payload) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         return data.get("embedding", [])

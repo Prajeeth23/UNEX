@@ -13,8 +13,8 @@ class MemoryDB(Base):
     type = Column(String, index=True)
     content = Column(Text)
     importance = Column(String, default="MEDIUM")
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    last_accessed = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    last_accessed = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     tags = Column(Text) # JSON serialized list of strings
 
 class MemoryEmbeddingDB(Base):
@@ -26,13 +26,13 @@ class MemoryAccessLogDB(Base):
     __tablename__ = 'memory_access_logs'
     id = Column(Integer, primary_key=True, autoincrement=True)
     memory_id = Column(String, index=True)
-    accessed_at = Column(DateTime, default=datetime.datetime.utcnow)
+    accessed_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     context = Column(Text, nullable=True)
 
 class AuditLogDB(Base):
     __tablename__ = 'audit_logs'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     tool_name = Column(String, index=True)
     tool_args = Column(Text) # JSON serialized
     risk_level = Column(String)

@@ -8,6 +8,10 @@ class OllamaProvider(LLMProvider):
         self.base_url = base_url
         self.default_model = default_model
 
+    @property
+    def host(self) -> str:
+        return self.base_url
+
     def generate(self, prompt: str, **kwargs) -> str:
         # Synchronous wrapper could use requests, but sticking to async since we prefer async architecture
         raise NotImplementedError("Use agenerate instead for async architecture")

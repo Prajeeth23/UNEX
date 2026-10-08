@@ -1,8 +1,11 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 .env
 .pytest_cache/
 database/*.db
 alembic/versions/*
+knowledge_db/
+*.lock
 .DS_Store

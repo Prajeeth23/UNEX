@@ -12,19 +12,30 @@ from src.security.action_validator import validator
 class VoiceController:
     def __init__(self, agent: UNEXAgent):
         self.agent = agent
-        self.audio_manager = AudioManager()
-        self.wake_word = WakeWordDetector()
-        self.stt = SpeechToText()
-        self.tts = TextToSpeech(self.audio_manager)
+        self.audio_manager = None
+        self.wake_word = None
+        self.stt = None
+        self.tts = None
         self.session = VoiceSession()
         
         self._running = False
         self._thread = None
         self._loop = asyncio.new_event_loop()
         
+    def _init_audio(self):
+        if self.audio_manager is None:
+            self.audio_manager = AudioManager()
+        if self.wake_word is None:
+            self.wake_word = WakeWordDetector()
+        if self.stt is None:
+            self.stt = SpeechToText()
+        if self.tts is None:
+            self.tts = TextToSpeech(self.audio_manager)
+
     def start(self):
         if self._running:
             return
+        self._init_audio()
         self._running = True
         self.audio_manager.start_recording()
         self._thread = threading.Thread(target=self._run_loop, daemon=True)
@@ -33,10 +44,14 @@ class VoiceController:
         
     def stop(self):
         self._running = False
-        self.audio_manager.stop_recording()
-        self.tts.stop()
-        self.stt.clear_buffer()
-        self.wake_word.cleanup()
+        if self.audio_manager:
+            self.audio_manager.stop_recording()
+        if self.tts:
+            self.tts.stop()
+        if self.stt:
+            self.stt.clear_buffer()
+        if self.wake_word:
+            self.wake_word.cleanup()
         if self._thread:
             self._thread.join(timeout=2.0)
             

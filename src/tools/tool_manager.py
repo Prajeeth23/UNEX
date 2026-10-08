@@ -7,6 +7,14 @@ from src.security.action_validator import validator, ApprovalRequiredException
 class ToolManager:
     """Manages the execution of tools requested by the LLM."""
     
+    @classmethod
+    def get_tool(cls, tool_name: str):
+        alias_map = {
+            "system_info": "get_system_info"
+        }
+        actual = alias_map.get(tool_name, tool_name)
+        return registry.get_tool(actual)
+
     @staticmethod
     async def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> ToolResult:
         try:

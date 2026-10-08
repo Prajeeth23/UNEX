@@ -26,3 +26,5 @@ qdrant-client
 apscheduler
 watchdog
 python-multipart
+pyttsx3
+kokoro

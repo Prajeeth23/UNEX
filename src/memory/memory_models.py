@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 
 class MemoryType(str, Enum):
@@ -21,6 +21,6 @@ class MemoryRecord(BaseModel):
     type: MemoryType
     content: str
     importance: ImportanceLevel = Field(default=ImportanceLevel.MEDIUM)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_accessed: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_accessed: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     tags: List[str] = Field(default_factory=list)
