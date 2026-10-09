@@ -19,6 +19,11 @@ async def lifespan(app: FastAPI):
     voice_controller.start()
     
     logger.info("Database Initialized. Starting up...")
+    
+    # Launch Standalone Native Desktop GUI Window (App Mode)
+    from src.gui.app_window import launch_gui_window
+    launch_gui_window()
+    
     yield
     logger.info("Shutting down Voice Controller...")
     voice_controller.stop()
@@ -46,6 +51,10 @@ app.include_router(router, prefix="/api")
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend")
 if os.path.exists(frontend_dir):
     app.mount("/dashboard", StaticFiles(directory=frontend_dir, html=True), name="frontend")
+
+@app.get("/api/status")
+async def api_status():
+    return {"status": "online", "mode": "production"}
 
 @app.get("/")
 async def root():

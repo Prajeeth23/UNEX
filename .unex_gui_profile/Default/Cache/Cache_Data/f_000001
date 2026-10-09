@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNEX OS | Unified Mission Control Cockpit</title>
+    <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <!-- Background Atmospheric Lighting Elements -->
+    <div class="ambient-glow cyan-glow"></div>
+    <div class="ambient-glow violet-glow"></div>
+    <div class="grid-overlay"></div>
+
+    <!-- Main Container -->
+    <div class="dashboard-container">
+        <!-- Top Navigation / System HUD Bar -->
+        <header class="top-bar glass-panel">
+            <div class="brand-cluster">
+                <div class="logo-mark">
+                    <span class="logo-hex">⬡</span>
+                    <span class="logo-text">UNEX</span>
+                </div>
+                <div class="version-tag">OS v2.4</div>
+                <div class="status-pill status-online" id="system-status-pill">
+                    <span class="pulse-dot"></span>
+                    <span id="system-status-text">ONLINE • CUDA ACCELERATED</span>
+                </div>
+            </div>
+
+            <!-- Model Badges -->
+            <div class="models-cluster">
+                <div class="model-badge" title="Primary Local LLM">
+                    <span class="badge-label">LLM</span>
+                    <span class="badge-val">Qwen 2.5 (3B)</span>
+                </div>
+                <div class="model-badge" title="Multimodal Screen Vision">
+                    <span class="badge-label">VISION</span>
+                    <span class="badge-val">Moondream</span>
+                </div>
+                <div class="model-badge" title="Neural Speech & Voice">
+                    <span class="badge-label">VOICE</span>
+                    <span class="badge-val">Kokoro + Whisper</span>
+                </div>
+            </div>
+
+            <!-- Header Actions & Clock -->
+            <div class="header-actions">
+                <button class="action-btn-ghost" id="btn-refresh-screen" title="Instant Screen Capture">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                    <span>Capture</span>
+                </button>
+                <button class="action-btn-ghost" id="btn-voice-toggle" title="Toggle Voice Listening">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                    <span id="voice-toggle-text">Mic Active</span>
+                </button>
+                <div class="system-time" id="live-time">10:45:00 AM</div>
+            </div>
+        </header>
+
+        <!-- Security Action Approval Alert (Hidden by default) -->
+        <div class="approval-banner glass-panel" id="approval-banner" style="display: none;">
+            <div class="approval-icon">⚠️</div>
+            <div class="approval-info">
+                <div class="approval-title" id="approval-title">High Risk Action Requires Confirmation</div>
+                <div class="approval-desc" id="approval-desc">Tool: <span id="approval-tool">delete_file</span> with arguments: <code id="approval-args">{}</code></div>
+            </div>
+            <div class="approval-actions">
+                <button class="btn-deny" id="btn-approval-deny">Deny</button>
+                <button class="btn-approve" id="btn-approval-approve">Approve & Execute</button>
+            </div>
+        </div>
+
+        <!-- Main Cockpit Grid -->
+        <main class="cockpit-grid">
+            <!-- Left Column: Hardware Telemetry & Desktop Context HUD -->
+            <aside class="col-telemetry">
+                <!-- GPU & Hardware Gauge Card -->
+                <div class="glass-card telemetry-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span class="icon">⚡</span> Hardware Telemetry
+                        </div>
+                        <span class="card-tag" id="gpu-device-name">RTX 3050</span>
+                    </div>
+
+                    <!-- GPU VRAM Meter -->
+                    <div class="metric-block">
+                        <div class="metric-meta">
+                            <span class="metric-label">GPU VRAM</span>
+                            <span class="metric-val" id="vram-val">0.0 / 4.0 GB</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-bar cyan-bar" id="vram-bar" style="width: 25%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- CPU Load Meter -->
+                    <div class="metric-block">
+                        <div class="metric-meta">
+                            <span class="metric-label">CPU LOAD</span>
+                            <span class="metric-val" id="cpu-val">0%</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-bar violet-bar" id="cpu-bar" style="width: 15%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- System RAM Meter -->
+                    <div class="metric-block">
+                        <div class="metric-meta">
+                            <span class="metric-label">SYSTEM RAM</span>
+                            <span class="metric-val" id="ram-val">0.0 / 16.0 GB</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-bar teal-bar" id="ram-bar" style="width: 45%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Active Window Card -->
+                <div class="glass-card active-window-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span class="icon">🖥️</span> Active Window
+                        </div>
+                        <span class="badge-quadrant" id="win-quadrant">fullscreen</span>
+                    </div>
+                    <div class="window-details">
+                        <div class="win-title" id="win-title">Detecting foreground window...</div>
+                        <div class="win-meta-row">
+                            <span class="win-meta-tag">PID: <strong id="win-pid">-</strong></span>
+                            <span class="win-meta-tag">Process: <strong id="win-proc">-</strong></span>
+                        </div>
+                        <div class="win-coords" id="win-coords">Bounds: (0, 0) — 1920x1080</div>
+                    </div>
+                    <div class="quick-window-actions">
+                        <button class="win-btn" id="btn-minimize-active" title="Minimize Window">Minimize</button>
+                        <button class="win-btn" id="btn-maximize-active" title="Maximize Window">Maximize</button>
+                        <button class="win-btn" id="btn-restore-active" title="Restore Window">Restore</button>
+                    </div>
+                </div>
+
+                <!-- Quick OS Control Tools -->
+                <div class="glass-card tools-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span class="icon">🛠️</span> Autonomous Tools
+                        </div>
+                    </div>
+                    <div class="tools-grid">
+                        <button class="tool-tile" id="tool-ocr-btn">
+                            <span class="tool-icon">📝</span>
+                            <span class="tool-name">Screen OCR</span>
+                        </button>
+                        <button class="tool-tile" id="tool-clip-btn">
+                            <span class="tool-icon">📋</span>
+                            <span class="tool-name">Clipboard</span>
+                        </button>
+                        <button class="tool-tile" id="tool-apps-btn">
+                            <span class="tool-icon">🚀</span>
+                            <span class="tool-name">Applications</span>
+                        </button>
+                        <button class="tool-tile" id="tool-audit-btn">
+                            <span class="tool-icon">🛡️</span>
+                            <span class="tool-name">Audit Logs</span>
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Column: Voice Neural Visualizer & AI Agent Chat -->
+            <section class="col-center">
+                <!-- Neural Voice Orb & Live Waveform Canvas -->
+                <div class="glass-card voice-visualizer-card">
+                    <div class="voice-header">
+                        <div class="voice-status-wrapper">
+                            <span class="pulse-beacon"></span>
+                            <span class="voice-mode" id="voice-state-label">UNEX LISTENING (Wake Word: "Hey Jarvis")</span>
+                        </div>
+                        <div class="voice-stats">Latency: ~26ms</div>
+                    </div>
+
+                    <div class="orb-container">
+                        <div class="neural-orb" id="neural-orb">
+                            <div class="orb-core"></div>
+                            <div class="orb-ring ring-1"></div>
+                            <div class="orb-ring ring-2"></div>
+                            <div class="orb-ring ring-3"></div>
+                        </div>
+                    </div>
+
+                    <div class="waveform-container">
+                        <canvas id="waveform-canvas" width="600" height="40"></canvas>
+                    </div>
+                </div>
+
+                <!-- Live Conversation & Action Feed -->
+                <div class="glass-card chat-card">
+                    <div class="chat-header">
+                        <span class="chat-title">Intelligence Stream</span>
+                        <span class="chat-sub">Qwen 2.5 (3B) • Autonomous Executor</span>
+                    </div>
+
+                    <div class="chat-stream" id="chat-stream">
+                        <!-- Welcome Message -->
+                        <div class="chat-msg msg-assistant">
+                            <div class="msg-avatar">⬡</div>
+                            <div class="msg-bubble">
+                                <div class="msg-header">UNEX Core</div>
+                                <div class="msg-content">Hello Prajeeth, UNEX is ready. Full local AI engine, multimodal vision, real-time voice, and autonomous desktop OS automation are active.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Input Form -->
+                    <form class="chat-input-wrapper" id="chat-form">
+                        <button type="button" class="input-icon-btn mic-btn" id="mic-input-btn" title="Speak to UNEX">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        </button>
+                        <input type="text" id="chat-input" class="chat-input-field" placeholder="Ask UNEX or command OS actions (e.g., 'What is on my screen?', 'Focus Chrome', 'Copy system stats')..." autocomplete="off">
+                        <button type="submit" class="input-submit-btn" id="send-btn" title="Send Command">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Right Column: Live Screen Context & Visual Feed -->
+            <aside class="col-vision">
+                <!-- Live Desktop Screen Feed -->
+                <div class="glass-card screen-feed-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span class="icon">👁️</span> Live Visual Context
+                        </div>
+                        <span class="card-tag">Moondream</span>
+                    </div>
+
+                    <div class="screen-viewport" id="screen-viewport">
+                        <div class="viewport-loader" id="viewport-loader">Live Desktop Feed</div>
+                        <img id="screen-img" class="screen-preview-img" alt="Desktop Screen Stream" style="display: none;">
+                        <div class="ocr-overlay" id="ocr-overlay" style="display: none;"></div>
+                    </div>
+
+                    <div class="screen-feed-controls">
+                        <button class="feed-btn" id="btn-toggle-ocr">Toggle OCR Text</button>
+                        <button class="feed-btn primary-feed-btn" id="btn-analyze-scene">Analyze Scene</button>
+                    </div>
+
+                    <!-- Vision Scene Analysis Box -->
+                    <div class="vision-output-box" id="vision-output-box">
+                        <div class="output-title">Scene Perception</div>
+                        <div class="output-text" id="vision-text">Click "Analyze Scene" to process current screen with Moondream.</div>
+                    </div>
+                </div>
+
+                <!-- Clipboard & Quick Memory Glance -->
+                <div class="glass-card clipboard-card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span class="icon">📋</span> System Clipboard
+                        </div>
+                        <button class="btn-xs" id="btn-refresh-clip">Sync</button>
+                    </div>
+                    <div class="clipboard-box" id="clipboard-content">
+                        [Empty or syncing...]
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Bottom Drawer: Long-Term Memory, Knowledge RAG & Audit Stream -->
+        <footer class="bottom-drawer glass-panel">
+            <div class="drawer-tabs">
+                <button class="drawer-tab active" data-tab="tab-memory">🧠 Memory Store</button>
+                <button class="drawer-tab" data-tab="tab-audit">🛡️ Security Audit Logs</button>
+                <button class="drawer-tab" data-tab="tab-diagnostics">🩺 System Diagnostics</button>
+            </div>
+
+            <div class="drawer-content">
+                <!-- Memory Tab -->
+                <div class="tab-pane active" id="tab-memory">
+                    <div class="memory-grid" id="memory-items">
+                        <div class="drawer-empty-state">Loading user long-term preferences and project memories...</div>
+                    </div>
+                </div>
+
+                <!-- Audit Tab -->
+                <div class="tab-pane" id="tab-audit">
+                    <div class="audit-stream" id="audit-items">
+                        <div class="drawer-empty-state">Loading recent security action logs...</div>
+                    </div>
+                </div>
+
+                <!-- Diagnostics Tab -->
+                <div class="tab-pane" id="tab-diagnostics">
+                    <div class="diagnostics-row" id="diagnostics-content">
+                        <div class="diag-item">Database: <strong class="text-ok">Online</strong></div>
+                        <div class="diag-item">Ollama Daemon: <strong class="text-ok">Connected (11434)</strong></div>
+                        <div class="diag-item">Voice Controller: <strong class="text-ok">Active</strong></div>
+                        <div class="diag-item">RapidOCR: <strong class="text-ok">Operational</strong></div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/visualizer.js"></script>
+    <script src="js/telemetry.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
