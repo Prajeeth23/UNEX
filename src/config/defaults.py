@@ -2,8 +2,8 @@ import os
 
 class Defaults:
     """Default hardcoded values for UNEX."""
-    LLM_MODEL = "qwen3:8b"
-    VISION_MODEL = "qwen2.5vl:7b"
+    LLM_MODEL = "qwen2.5:3b"
+    VISION_MODEL = "moondream"
     OLLAMA_HOST = "http://localhost:11434"
     WAKE_WORD = "UNEX"
     DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "unex.db"))

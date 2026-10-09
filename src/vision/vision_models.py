@@ -2,14 +2,14 @@ import aiohttp
 import json
 import os
 from typing import Dict, Any
+from src.config.defaults import Defaults
 
 class VisionModelProvider:
-    """Dedicated provider for multimodal Ollama models (e.g., qwen2.5vl:7b)."""
+    """Dedicated provider for multimodal Ollama models."""
     
     def __init__(self):
-        self.host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        # We specify qwen2.5vl as the default vision model
-        self.model = os.getenv("VISION_MODEL", "qwen2.5vl:7b")
+        self.host = os.getenv("OLLAMA_HOST", Defaults.OLLAMA_HOST)
+        self.model = os.getenv("VISION_MODEL", Defaults.VISION_MODEL)
         
     async def analyze_image(self, base64_image: str, prompt: str, system_prompt: str = "") -> str:
         url = f"{self.host}/api/generate"

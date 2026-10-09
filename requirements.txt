@@ -28,3 +28,4 @@ watchdog
 python-multipart
 pyttsx3
 kokoro
+rapidocr-onnxruntime

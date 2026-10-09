@@ -23,19 +23,26 @@ class AudioManager:
         if self.stream is not None:
             return
         self.is_recording = True
-        self.stream = sd.InputStream(
-            samplerate=self.sample_rate,
-            channels=self.channels,
-            dtype='float32',
-            callback=self._audio_callback
-        )
-        self.stream.start()
+        try:
+            self.stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=self.channels,
+                dtype='float32',
+                callback=self._audio_callback
+            )
+            self.stream.start()
+        except Exception as e:
+            print(f"[AudioManager] Microphone input stream warning: {e}")
+            self.stream = None
         
     def stop_recording(self):
         self.is_recording = False
         if self.stream:
-            self.stream.stop()
-            self.stream.close()
+            try:
+                self.stream.stop()
+                self.stream.close()
+            except Exception:
+                pass
             self.stream = None
             
     def get_audio_chunk(self, block=True, timeout=None):
@@ -43,6 +50,19 @@ class AudioManager:
             return self.input_queue.get(block=block, timeout=timeout)
         except queue.Empty:
             return None
+
+    def push_audio_chunk(self, chunk: np.ndarray):
+        """Pushes audio directly into input_queue for testing, simulation, or file inputs."""
+        flat = np.asarray(chunk, dtype=np.float32).flatten()
+        self.input_queue.put(flat)
+
+    def clear_input_queue(self):
+        """Discards all pending audio chunks in queue."""
+        while not self.input_queue.empty():
+            try:
+                self.input_queue.get_nowait()
+            except queue.Empty:
+                break
             
     def play_audio(self, audio_data: np.ndarray, samplerate: int):
         """Blocking playback. Can be interrupted by stopping the thread."""

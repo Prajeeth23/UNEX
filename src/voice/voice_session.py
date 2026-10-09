@@ -72,3 +72,10 @@ class VoiceSession:
     def check_barge_in(self) -> bool:
         """Determines if the user's voice should interrupt the current state."""
         return self.current_state == VoiceState.SPEAKING
+
+    def trigger_barge_in(self) -> bool:
+        """Transitions from SPEAKING to LISTENING when user interrupts."""
+        if self.current_state == VoiceState.SPEAKING:
+            self.transition_to(VoiceState.LISTENING)
+            return True
+        return False

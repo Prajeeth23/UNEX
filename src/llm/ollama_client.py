@@ -2,11 +2,12 @@ import json
 from typing import Dict, List, Optional
 import aiohttp
 from src.llm.provider import LLMProvider
+from src.config.defaults import Defaults
 
 class OllamaProvider(LLMProvider):
-    def __init__(self, base_url: str = "http://localhost:11434", default_model: str = "qwen3:8b"):
+    def __init__(self, base_url: str = "http://localhost:11434", default_model: Optional[str] = None):
         self.base_url = base_url
-        self.default_model = default_model
+        self.default_model = default_model or Defaults.LLM_MODEL
 
     @property
     def host(self) -> str:

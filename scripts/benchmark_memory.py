@@ -87,8 +87,16 @@ def run_benchmark():
         print(f"Passes constraint? {'YES' if search_time < 0.5 else 'NO'}")
 
     # Cleanup
+    try:
+        manager.store.SessionLocal.kw['bind'].dispose()
+    except Exception:
+        pass
     if os.path.exists(db_path):
-        os.remove(db_path)
+        try:
+            os.remove(db_path)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     run_benchmark()
+

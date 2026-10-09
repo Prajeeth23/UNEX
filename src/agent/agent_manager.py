@@ -2,6 +2,7 @@ from typing import Annotated, TypedDict, List
 from langgraph.graph import StateGraph, START, END
 import asyncio
 import json
+from src.config.settings import settings
 from src.llm.ollama_client import OllamaProvider
 from src.memory.memory_manager import MemoryManager
 from src.tools import registry, ToolManager
@@ -11,7 +12,7 @@ class AgentState(TypedDict):
 
 class UNEXAgent:
     def __init__(self):
-        self.llm_provider = OllamaProvider(default_model="qwen3:8b")
+        self.llm_provider = OllamaProvider(default_model=settings.llm_model)
         self.memory_manager = MemoryManager(self.llm_provider)
         self.graph = self._build_graph()
 

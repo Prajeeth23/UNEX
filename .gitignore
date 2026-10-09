@@ -5,7 +5,13 @@ __pycache__/
 .env
 .pytest_cache/
 database/*.db
+*.db
 alembic/versions/*
 knowledge_db/
+visual_memory/
+stability_report.txt
+*.pid
+*.log
 *.lock
 .DS_Store
+

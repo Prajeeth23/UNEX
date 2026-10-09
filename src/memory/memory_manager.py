@@ -45,6 +45,14 @@ class MemoryManager:
         self.store.delete_memory(memory_id)
         self.retriever.mark_dirty()
 
+    def prune_decayed_memories(self, max_age_days: int = 30, max_capacity: int = None) -> int:
+        """Prunes decayed low-importance memories and refreshes vector search index."""
+        count = self.store.prune_memories(max_age_days=max_age_days, max_capacity=max_capacity)
+        if count > 0:
+            self.retriever.mark_dirty()
+        return count
+
+
     def close(self):
         """Disposes the SQLite engine to prevent file locking on Windows."""
         try:

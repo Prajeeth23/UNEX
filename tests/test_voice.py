@@ -69,3 +69,45 @@ def test_state_transitions():
     # Finished speaking
     session.transition_to(VoiceState.IDLE)
     assert session.current_state == VoiceState.IDLE
+
+def test_session_trigger_barge_in():
+    session = VoiceSession()
+    session.transition_to(VoiceState.SPEAKING)
+    assert session.trigger_barge_in() is True
+    assert session.current_state == VoiceState.LISTENING
+
+def test_audio_manager_push_and_clear():
+    import numpy as np
+    from src.voice.audio_manager import AudioManager
+    mgr = AudioManager()
+    chunk = np.ones(1280, dtype=np.float32) * 0.1
+    mgr.push_audio_chunk(chunk)
+    retrieved = mgr.get_audio_chunk(block=False)
+    assert retrieved is not None
+    assert len(retrieved) == 1280
+    mgr.push_audio_chunk(chunk)
+    mgr.clear_input_queue()
+    assert mgr.get_audio_chunk(block=False) is None
+
+def test_voice_controller_barge_in_interruption():
+    import numpy as np
+    from unittest.mock import MagicMock
+    from src.voice.voice_controller import VoiceController
+    
+    mock_agent = MagicMock()
+    vc = VoiceController(mock_agent)
+    vc._init_audio()
+    vc.session.transition_to(VoiceState.SPEAKING)
+    vc.tts._is_playing = True
+    
+    # Send loud chunk 1
+    loud_chunk = np.ones(1280, dtype=np.float32) * 0.2
+    vc.process_audio_chunk(loud_chunk)
+    assert vc.session.current_state == VoiceState.SPEAKING
+    assert vc._barge_in_consecutive_loud_frames == 1
+    
+    # Send loud chunk 2 (triggers barge-in threshold)
+    vc.process_audio_chunk(loud_chunk)
+    assert vc.session.current_state == VoiceState.LISTENING
+    assert vc.tts._is_playing is False
+    assert vc._barge_in_consecutive_loud_frames == 0

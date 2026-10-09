@@ -21,6 +21,10 @@ class VoiceController:
         self._running = False
         self._thread = None
         self._loop = asyncio.new_event_loop()
+        self._next_state_after_speaking = None
+        self._barge_in_consecutive_loud_frames = 0
+        self._listening_started_at = 0.0
+        self.barge_in_rms_threshold = 0.05
         
     def _init_audio(self):
         if self.audio_manager is None:
@@ -69,91 +73,112 @@ class VoiceController:
         while self._running:
             chunk = self.audio_manager.get_audio_chunk(block=True, timeout=0.1)
             if chunk is None:
+                # If idle or speaking, perform idle cleanup checks
+                self._check_state_transitions()
                 continue
                 
-            state = self.session.current_state
-            
-            # --- IDLE STATE ---
-            if state == VoiceState.IDLE:
-                if self.wake_word.process_chunk(chunk):
-                    print("\n[VoiceController] Wake word detected!")
-                    self.session.transition_to(VoiceState.LISTENING)
-                    self.tts.speak("Hello Prajeeth, I'm listening.")
-                    self.stt.clear_buffer()
-                    
-            # --- LISTENING STATE ---
-            elif state == VoiceState.LISTENING:
-                # Barge-in check: if we are speaking, and STT detects loud energy, we might want to stop TTS.
-                # Currently, Barge-in is requested as: User speaks during TTS -> stop TTS -> listening mode.
-                # However, if we are in LISTENING mode, we are just accumulating audio.
-                text = self.stt.add_audio(chunk, self.audio_manager.sample_rate)
-                if text:
-                    print(f"\n[User] {text}")
-                    # Check offline built-in commands first
-                    if self.session.handle_builtin_command(text):
-                        pass # Handled internally
-                    else:
-                        self.session.transition_to(VoiceState.THINKING)
-                        # Dispatch to agent
-                        self._loop.run_until_complete(self._handle_agent_request(text))
-                        
-            # --- SPEAKING STATE ---
-            elif state == VoiceState.SPEAKING:
-                # Barge-in logic: Check if user is speaking loudly to interrupt
-                # rms = np.sqrt(np.mean(chunk**2))
-                # if rms > some_threshold:
-                #    self.tts.stop()
-                #    self.session.transition_to(VoiceState.LISTENING)
-                #    self.stt.clear_buffer()
-                # Simplified for MVP: rely on 'Stop' command handled below
-                
-                # We can also run STT continuously to catch the "Stop" command during speaking
-                text = self.stt.add_audio(chunk, self.audio_manager.sample_rate)
-                if text:
-                    print(f"\n[User Interruption] {text}")
-                    self.tts.stop()
-                    if self.session.handle_builtin_command(text):
-                        pass
-                    else:
-                        self.session.transition_to(VoiceState.THINKING)
-                        self._loop.run_until_complete(self._handle_agent_request(text))
+            self.process_audio_chunk(chunk)
 
-            # --- AWAITING_APPROVAL STATE ---
-            elif state == VoiceState.AWAITING_APPROVAL:
-                text = self.stt.add_audio(chunk, self.audio_manager.sample_rate)
-                if text:
-                    print(f"\n[User (Approval)] {text}")
-                    text_lower = text.lower()
-                    if "yes" in text_lower or "confirm" in text_lower or "do it" in text_lower:
-                        validator.approval_manager.provide_confirmation(True)
-                    elif "no" in text_lower or "cancel" in text_lower or "stop" in text_lower:
-                        validator.approval_manager.provide_confirmation(False)
-                        
+    def process_audio_chunk(self, chunk):
+        """Processes a single audio chunk through the voice state machine."""
+        import numpy as np
+        state = self.session.current_state
+        rms = float(np.sqrt(np.mean(chunk**2))) if len(chunk) > 0 else 0.0
+        
+        # --- 1. IDLE STATE ---
+        if state == VoiceState.IDLE:
+            if not self.session.is_sleeping and self.wake_word.process_chunk(chunk):
+                print("\n[VoiceController] Wake word detected!")
+                self.session.transition_to(VoiceState.SPEAKING)
+                self._next_state_after_speaking = VoiceState.LISTENING
+                self._listening_started_at = time.time()
+                if not self.session.is_muted:
+                    self.tts.speak("Hello Prajeeth, I'm listening.")
+                else:
+                    self.session.transition_to(VoiceState.LISTENING)
+                self.stt.clear_buffer()
+                self.wake_word.clear_buffer()
+                return
+                
+        # --- 2. LISTENING STATE ---
+        elif state == VoiceState.LISTENING:
+            # Timeout safeguard: return to IDLE if no user voice after 12 seconds
+            if time.time() - self._listening_started_at > 12.0 and not self.stt.audio_buffer:
+                print("[VoiceController] Listening timeout, reverting to IDLE.")
+                self.session.transition_to(VoiceState.IDLE)
+                return
+                
+            text = self.stt.add_audio(chunk, self.audio_manager.sample_rate)
+            if text:
+                print(f"\n[User] {text}")
+                self.stt.clear_buffer()
+                # Check offline built-in commands first
+                if self.session.handle_builtin_command(text):
+                    pass # Handled internally
+                else:
                     self.session.transition_to(VoiceState.THINKING)
                     self._loop.run_until_complete(self._handle_agent_request(text))
+                    
+        # --- 3. SPEAKING STATE ---
+        elif state == VoiceState.SPEAKING:
+            # Energy-based Barge-In: if user speaks over TTS playback, stop speech immediately
+            if self.tts._is_playing and rms > self.barge_in_rms_threshold:
+                self._barge_in_consecutive_loud_frames += 1
+            else:
+                self._barge_in_consecutive_loud_frames = 0
+                
+            if self._barge_in_consecutive_loud_frames >= 2:
+                print("\n[VoiceController] Barge-in detected! Stopping TTS playback.")
+                self.tts.stop()
+                self._barge_in_consecutive_loud_frames = 0
+                self._next_state_after_speaking = None
+                self.session.trigger_barge_in()
+                self.stt.clear_buffer()
+                self._listening_started_at = time.time()
+                self.stt.add_audio(chunk, self.audio_manager.sample_rate)
+                return
 
-            # Auto-revert from Speaking back to IDLE or AWAITING_APPROVAL
-            if state == VoiceState.SPEAKING and not self.tts._is_playing:
-                if validator.approval_manager.pending_action:
-                    self.session.transition_to(VoiceState.AWAITING_APPROVAL)
-                else:
-                    self.session.transition_to(VoiceState.IDLE)
+        # --- 4. AWAITING_APPROVAL STATE ---
+        elif state == VoiceState.AWAITING_APPROVAL:
+            text = self.stt.add_audio(chunk, self.audio_manager.sample_rate)
+            if text:
+                print(f"\n[User (Approval)] {text}")
+                self.stt.clear_buffer()
+                text_lower = text.lower()
+                if any(w in text_lower for w in ["yes", "confirm", "do it", "approved", "proceed"]):
+                    validator.approval_manager.provide_confirmation(True)
+                elif any(w in text_lower for w in ["no", "cancel", "stop", "abort", "reject"]):
+                    validator.approval_manager.provide_confirmation(False)
+                    
+                self.session.transition_to(VoiceState.THINKING)
+                self._loop.run_until_complete(self._handle_agent_request(text))
+
+        self._check_state_transitions()
+
+    def _check_state_transitions(self):
+        state = self.session.current_state
+        if state == VoiceState.SPEAKING and not self.tts._is_playing:
+            next_s = self._next_state_after_speaking
+            if next_s:
+                self._next_state_after_speaking = None
+                self.session.transition_to(next_s)
+                if next_s == VoiceState.LISTENING:
+                    self._listening_started_at = time.time()
+                    self.stt.clear_buffer()
+                    self.wake_word.clear_buffer()
+            elif validator.approval_manager.pending_action:
+                self.session.transition_to(VoiceState.AWAITING_APPROVAL)
+            else:
+                self.session.transition_to(VoiceState.IDLE)
                 
     async def _handle_agent_request(self, text: str):
-        # We need a new state object for LangGraph to maintain conversation history.
-        # For this MVP, we create a basic state.
-        state = {"messages": [{"role": "user", "content": text}]}
-        
         try:
-            # We don't want to call _call_agent directly as it is an internal method,
-            # but LangGraph exposes ainvokve/invoke.
-            result = await self.agent.graph.ainvoke(state)
-            messages = result["messages"]
-            final_response = messages[-1]["content"]
-            
+            final_response = await self.agent.chat(user_input=text)
             print(f"[UNEX] {final_response}")
             self.session.transition_to(VoiceState.SPEAKING)
-            self.tts.speak(final_response)
+            self._next_state_after_speaking = None
+            if not self.session.is_muted:
+                self.tts.speak(final_response)
         except Exception as e:
             print(f"[VoiceController] Agent execution error: {e}")
             self.session.transition_to(VoiceState.IDLE)

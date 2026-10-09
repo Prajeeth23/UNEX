@@ -95,7 +95,35 @@ class WindowStateTool(BaseTool):
         except Exception as e:
             return ToolResult.fail(str(e))
 
+from src.vision.desktop_context import DesktopContext
+from src.utils.win32_helper import ensure_desktop_access
+
+class GetActiveWindowTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "get_active_window"
+        
+    @property
+    def description(self) -> str:
+        return "Retrieves information about the currently active foreground window (title, PID, process, bounds, quadrant)."
+        
+    @property
+    def parameters_schema(self) -> dict:
+        return {"type": "object", "properties": {}, "required": []}
+        
+    async def execute(self, **kwargs) -> Any:
+        try:
+            ensure_desktop_access()
+            info = DesktopContext.get_active_window_info()
+            if not info:
+                return ToolResult.ok(data={"active_window": None, "message": "No active window detected."})
+            return ToolResult.ok(data={"active_window": info})
+        except Exception as e:
+            return ToolResult.fail(str(e))
+
 # Register
 registry.register(ListWindowsTool())
 registry.register(FocusWindowTool())
 registry.register(WindowStateTool())
+registry.register(GetActiveWindowTool())
+

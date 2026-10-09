@@ -1,4 +1,10 @@
 import asyncio
+import sys
+import os
+
+# Ensure project root is in sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
 from src.startup.healthcheck import HealthCheck
 from src.startup.recovery import RecoveryManager
 from src.config.settings import settings

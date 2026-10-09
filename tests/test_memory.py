@@ -92,3 +92,46 @@ def test_multi_day_persistence(memory_manager):
         assert "blue" in results[0][0].content
     finally:
         new_manager.close()
+
+def test_memory_decay_and_pruning(memory_manager):
+    from datetime import datetime, timezone, timedelta
+
+    # 1. Store sacred preference memory
+    pref = MemoryRecord(
+        type=MemoryType.PREFERENCE,
+        content="Keep my terminal dark mode.",
+        importance=ImportanceLevel.HIGH
+    )
+    pref_id = memory_manager.store_memory(pref)
+
+    # 2. Store old low-importance ephemeral knowledge
+    old_ephemeral = MemoryRecord(
+        type=MemoryType.KNOWLEDGE,
+        content="Temporary scratch note from last month.",
+        importance=ImportanceLevel.LOW,
+        created_at=datetime.now(timezone.utc) - timedelta(days=45),
+        last_accessed=datetime.now(timezone.utc) - timedelta(days=45)
+    )
+    old_id = memory_manager.store_memory(old_ephemeral)
+
+    # 3. Store fresh low-importance knowledge
+    fresh = MemoryRecord(
+        type=MemoryType.KNOWLEDGE,
+        content="Fresh note from today.",
+        importance=ImportanceLevel.LOW
+    )
+    fresh_id = memory_manager.store_memory(fresh)
+
+    # Verify all 3 exist before pruning
+    assert len(memory_manager.store.get_all_memories()) == 3
+
+    # Run pruning for memories older than 30 days
+    pruned = memory_manager.prune_decayed_memories(max_age_days=30)
+    assert pruned == 1
+
+    # Old ephemeral memory should be gone
+    assert memory_manager.store.get_memory(old_id) is None
+    # Sacred preference and fresh note should remain
+    assert memory_manager.store.get_memory(pref_id) is not None
+    assert memory_manager.store.get_memory(fresh_id) is not None
+

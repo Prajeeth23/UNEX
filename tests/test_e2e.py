@@ -21,11 +21,19 @@ def test_e2e_tool_resolution():
     
 def test_e2e_safe_mode_degradation():
     from src.config.settings import settings
-    # Force safe mode
-    settings.enable_safe_mode()
-    assert settings.llm_model is None
-    
-    # We should still be able to run safe deterministic tools
-    sim = VoiceSimulator()
-    result = asyncio.run(sim.simulate_command("system_info"))
-    assert result.success is True
+    old_profile = settings.profile
+    old_llm = settings.llm_model
+    old_vision = settings.vision_model
+    try:
+        # Force safe mode
+        settings.enable_safe_mode()
+        assert settings.llm_model is None
+        
+        # We should still be able to run safe deterministic tools
+        sim = VoiceSimulator()
+        result = asyncio.run(sim.simulate_command("system_info"))
+        assert result.success is True
+    finally:
+        settings.profile = old_profile
+        settings.llm_model = old_llm
+        settings.vision_model = old_vision

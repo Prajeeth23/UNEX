@@ -81,6 +81,50 @@ class MemoryStore:
         log = MemoryAccessLogDB(memory_id=memory_id, context=context)
         session.add(log)
 
+    def prune_memories(self, max_age_days: int = 30, max_capacity: Optional[int] = None) -> int:
+        """
+        Prunes decayed low-importance memories to prevent database bloat.
+        - Preserves PREFERENCE memories and HIGH/CRITICAL importance memories.
+        - Deletes memories older than max_age_days if importance is LOW.
+        - Enforces max_capacity if specified by removing oldest unaccessed LOW/MEDIUM items.
+        """
+        from datetime import timedelta
+        pruned_count = 0
+        now = datetime.now(timezone.utc)
+        with self.SessionLocal() as session:
+            # 1. Age-based decay
+            cutoff_date = now - timedelta(days=max_age_days)
+            decay_query = session.query(MemoryDB).filter(
+                MemoryDB.type != MemoryType.PREFERENCE.value,
+                MemoryDB.importance == ImportanceLevel.LOW.value,
+                MemoryDB.last_accessed < cutoff_date
+            )
+            expired_ids = [m.id for m in decay_query.all()]
+            for mid in expired_ids:
+                session.query(MemoryEmbeddingDB).filter(MemoryEmbeddingDB.memory_id == mid).delete()
+                session.query(MemoryAccessLogDB).filter(MemoryAccessLogDB.memory_id == mid).delete()
+                session.query(MemoryDB).filter(MemoryDB.id == mid).delete()
+                pruned_count += 1
+                
+            # 2. Capacity-based pruning
+            if max_capacity:
+                total = session.query(MemoryDB).count()
+                if total > max_capacity:
+                    overflow = total - max_capacity
+                    overflow_query = session.query(MemoryDB).filter(
+                        MemoryDB.type != MemoryType.PREFERENCE.value,
+                        MemoryDB.importance.in_([ImportanceLevel.LOW.value, ImportanceLevel.MEDIUM.value])
+                    ).order_by(MemoryDB.last_accessed.asc()).limit(overflow)
+                    
+                    for m in overflow_query.all():
+                        session.query(MemoryEmbeddingDB).filter(MemoryEmbeddingDB.memory_id == m.id).delete()
+                        session.query(MemoryAccessLogDB).filter(MemoryAccessLogDB.memory_id == m.id).delete()
+                        session.query(MemoryDB).filter(MemoryDB.id == m.id).delete()
+                        pruned_count += 1
+                        
+            session.commit()
+            return pruned_count
+
     def _to_pydantic(self, db_mem: MemoryDB) -> MemoryRecord:
         return MemoryRecord(
             id=db_mem.id,
@@ -91,3 +135,4 @@ class MemoryStore:
             last_accessed=db_mem.last_accessed,
             tags=json.loads(db_mem.tags) if db_mem.tags else []
         )
+

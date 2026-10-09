@@ -99,6 +99,54 @@ def get_permissions():
         "tool_risks": {k: v.value for k, v in RiskClassifier.TOOL_RISK_MAP.items()}
     }
 
+# --- Desktop Context & Security Approvals ---
+from src.vision.desktop_context import DesktopContext
+from src.security.action_validator import validator
+
+class ApprovalRequest(BaseModel):
+    approved: bool
+
+@router.get("/desktop/active-window")
+def api_get_active_window():
+    info = DesktopContext.get_active_window_info()
+    return {"active_window": info, "summary": DesktopContext.get_context_summary()}
+
+@router.get("/security/pending")
+def api_get_pending_action():
+    pending = validator.approval_manager.pending_action
+    if not pending:
+        return {"pending": None}
+    return {
+        "pending": {
+            "tool_name": pending.tool_name,
+            "tool_args": pending.tool_args,
+            "risk_level": pending.risk_level.value,
+            "confirmations_received": pending.confirmations_received,
+            "required_confirmations": pending.required_confirmations,
+            "status": pending.status.value
+        }
+    }
+
+@router.post("/security/approve")
+def api_resolve_pending(req: ApprovalRequest):
+    status = validator.approval_manager.provide_confirmation(req.approved)
+    return {"status": status.value}
+
+@router.get("/vision/screen-thumbnail")
+def api_get_screen_thumbnail():
+    try:
+        from src.vision.screen_capture import ScreenCapture
+        from src.vision.image_loader import ImageLoader
+        import io
+        img = ScreenCapture.capture_fullscreen()
+        # Resize thumbnail to 480x270 for fast transfer
+        img.thumbnail((480, 270))
+        b64 = ImageLoader.load_base64_from_pil(img)
+        return {"success": True, "image_base64": b64}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 # --- Education APIs ---
 
 from fastapi import UploadFile, File

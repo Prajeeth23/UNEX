@@ -3,15 +3,16 @@ import numpy as np
 class WakeWordDetector:
     def __init__(self, sensitivity: float = 0.5):
         self.sensitivity = sensitivity
+        self.last_detected_wakeword = None
         try:
             import openwakeword
             from openwakeword.model import Model
             print("[WakeWord] Initializing OpenWakeWord 100% offline engine...")
             openwakeword.utils.download_models()
-            # We use the built-in "hey_jarvis" model
-            self.model = Model(wakeword_models=["hey_jarvis"], inference_framework="onnx")
+            # Support both hey_jarvis and alexa wakewords
+            self.model = Model(wakeword_models=["hey_jarvis", "alexa"], inference_framework="onnx")
             self.frame_length = 1280  # OpenWakeWord prefers chunks of 1280 for 16kHz
-        except ImportError as e:
+        except Exception as e:
             print(f"[WakeWord] Error initializing OpenWakeWord: {e}")
             self.model = None
             self.frame_length = 1280
@@ -19,7 +20,7 @@ class WakeWordDetector:
         self.buffer = np.array([], dtype=np.int16)
         
     def process_chunk(self, audio_chunk_float32: np.ndarray) -> bool:
-        """Returns True if 'Hey Jarvis' is detected."""
+        """Returns True if a registered wake word is detected."""
         if not self.model:
             return False
             
@@ -37,12 +38,19 @@ class WakeWordDetector:
             # Check if any model score exceeds the sensitivity
             for wakeword, score in predictions.items():
                 if score >= self.sensitivity:
+                    self.last_detected_wakeword = wakeword
                     # Reset internal state after trigger
                     self.model.reset()
+                    self.buffer = np.array([], dtype=np.int16)
                     return True
                     
         return False
         
+    def clear_buffer(self):
+        self.buffer = np.array([], dtype=np.int16)
+        if self.model:
+            self.model.reset()
+
     def cleanup(self):
-        pass # openwakeword doesn't need explicit destruction
+        self.clear_buffer()
 
